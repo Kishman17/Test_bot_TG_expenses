@@ -300,3 +300,151 @@
             <div class="category-stats" id="category-stats"></div>
         </div>
     </div>
+
+<script>
+        // Инициализация Telegram Web App
+        let tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.enableClosingConfirmation();
+        
+        // Получаем элементы DOM
+        const balanceElement = document.getElementById('balance');
+        const incomeElement = document.getElementById('income-amount');
+        const expenseElement = document.getElementById('expense-amount');
+        const transactionList = document.getElementById('transaction-list');
+        const transactionForm = document.getElementById('transaction-form');
+        const categoryStats = document.getElementById('category-stats');
+        
+        // Локальное хранилище для транзакций
+        let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+        
+        // Инициализация приложения
+        function init() {
+            updateBalance();
+            updateTransactions();
+            updateCategoryStats();
+        }
+        
+        // Обновление баланса
+        function updateBalance() {
+            const amounts = transactions.map(transaction => 
+                transaction.type === 'income' ? transaction.amount : -transaction.amount
+            );
+            
+            const total = amounts.reduce((acc, item) => acc + item, 0).toFixed(2);
+            const income = amounts.filter(item => item > 0).reduce((acc, item) => acc + item, 0).toFixed(2);
+            const expense = amounts.filter(item => item < 0).reduce((acc, item) => acc + item, 0).toFixed(2);
+            
+            balanceElement.textContent = `${total} ₽`;
+            incomeElement.textContent = `${income} ₽`;
+            expenseElement.textContent = `${Math.abs(expense)} ₽`;
+        }
+        
+        // Обновление списка транзакций
+        function updateTransactions() {
+            transactionList.innerHTML = '';
+            
+            transactions.forEach((transaction, index) => {
+                const sign = transaction.type === 'income' ? '+' : '-';
+                const li = document.createElement('li');
+                li.className = `transaction ${transaction.type}`;
+                
+                li.innerHTML = `
+                    <div>
+                        <div class="transaction-description">${transaction.description}</div>
+                        <div class="transaction-category">${transaction.category}</div>
+                    </div>
+                    <div class="transaction-amount">${sign}${Math.abs(transaction.amount)} ₽</div>
+                    <button class="delete-btn" onclick="removeTransaction(${index})">×</button>
+                `;
+                
+                transactionList.appendChild(li);
+            });
+        }
+        
+        // Обновление статистики по категориям
+        function updateCategoryStats() {
+            const expensesByCategory = {};
+            
+            transactions
+                .filter(transaction => transaction.type === 'expense')
+                .forEach(transaction => {
+                    if (!expensesByCategory[transaction.category]) {
+                        expensesByCategory[transaction.category] = 0;
+                    }
+                    expensesByCategory[transaction.category] += transaction.amount;
+                });
+            
+            categoryStats.innerHTML = '<h4>Расходы по категориям</h4>';
+            
+            if (Object.keys(expensesByCategory).length === 0) {
+                categoryStats.innerHTML += '<p>Нет данных о расходах</p>';
+                return;
+            }
+            
+            for (const category in expensesByCategory) {
+                const amount = expensesByCategory[category].toFixed(2);
+                const div = document.createElement('div');
+                div.className = 'category-item';
+                div.innerHTML = `
+                    <span class="category-name">${category}</span>
+                    <span class="category-amount">${amount} ₽</span>
+                `;
+                categoryStats.appendChild(div);
+            }
+        }
+        
+        // Добавление новой транзакции
+        function addTransaction(e) {
+            e.preventDefault();
+            
+            const description = document.getElementById('description').value;
+            const amount = parseFloat(document.getElementById('amount').value);
+            const type = document.getElementById('type').value;
+            const category = document.getElementById('category').value;
+            
+            if (description.trim() === '' || isNaN(amount) || amount <= 0) {
+                alert('Пожалуйста, введите корректные данные');
+                return;
+            }
+            
+            const transaction = {
+                id: Date.now(),
+                description,
+                amount,
+                type,
+                category,
+                date: new Date().toLocaleDateString('ru-RU')
+            };
+            
+            transactions.push(transaction);
+            localStorage.setItem('transactions', JSON.stringify(transactions));
+            
+            updateBalance();
+            updateTransactions();
+            updateCategoryStats();
+            
+            // Очистка формы
+            document.getElementById('description').value = '';
+            document.getElementById('amount').value = '';
+        }
+        
+        // Удаление транзакции
+        function removeTransaction(index) {
+            if (confirm('Вы уверены, что хотите удалить эту запись?')) {
+                transactions.splice(index, 1);
+                localStorage.setItem('transactions', JSON.stringify(transactions));
+                updateBalance();
+                updateTransactions();
+                updateCategoryStats();
+            }
+        }
+        
+        // Обработчики событий
+        transactionForm.addEventListener('submit', addTransaction);
+        
+        // Инициализация приложения
+        init();
+    </script>
+</body>
+</html>
